@@ -1,129 +1,232 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 
-function FlipDigit({ value, label }) {
+function FlipDigit({ value }) {
   const [current, setCurrent] = useState(value)
   const [prev, setPrev] = useState(value)
-  const [flipping, setFlipping] = useState(false)
+  const [phase, setPhase] = useState('idle') // 'idle' | 'top-flip' | 'show-new'
 
   useEffect(() => {
-    if (value !== current) {
-      setPrev(current)
-      setFlipping(true)
-      const t = setTimeout(() => {
-        setCurrent(value)
-        setFlipping(false)
-      }, 200)
-      return () => clearTimeout(t)
-    }
+    if (value === current) return
+    setPrev(current)
+    setPhase('top-flip')
+
+    const t1 = setTimeout(() => {
+      setCurrent(value)
+      setPhase('show-new')
+    }, 160)
+    const t2 = setTimeout(() => setPhase('idle'), 320)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [value])
 
-  const digits = String(current).padStart(2, '0')
-  const prevDigits = String(prev).padStart(2, '0')
+  const display = String(current).padStart(2, '0')
+  const prevDisplay = String(prev).padStart(2, '0')
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div
+      style={{
+        position: 'relative',
+        width: '72px',
+        height: '88px',
+        perspective: '400px',
+        flexShrink: 0,
+      }}
+    >
+      {/* Card background */}
       <div
-        className="relative overflow-hidden select-none"
         style={{
-          width: '64px',
-          height: '80px',
+          position: 'absolute',
+          inset: 0,
           background: '#1A1A26',
-          borderRadius: '6px',
-          boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.4)',
-          perspective: '300px',
+          borderRadius: '8px',
+          border: '1px solid rgba(255,183,213,0.12)',
+          boxShadow: 'inset 0 2px 12px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.3)',
+          overflow: 'hidden',
         }}
       >
-        {/* Top half */}
+        {/* Top half — current digit */}
         <div
-          className="absolute top-0 left-0 w-full overflow-hidden flex items-end justify-center"
           style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
             height: '50%',
-            borderBottom: '1px solid rgba(255,183,213,0.15)',
-            zIndex: 2,
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
           }}
         >
           <span
-            className="font-serif text-moonlight pb-1"
-            style={{ fontSize: '42px', lineHeight: '1', color: '#F8F7F2', fontWeight: 300 }}
-          >
-            {digits}
-          </span>
-        </div>
-
-        {/* Bottom half */}
-        <div
-          className="absolute bottom-0 left-0 w-full overflow-hidden flex items-start justify-center"
-          style={{ height: '50%', zIndex: 1 }}
-        >
-          <span
-            className="font-serif pt-1"
-            style={{ fontSize: '42px', lineHeight: '1', color: '#F8F7F2', fontWeight: 300, marginTop: '-40px' }}
-          >
-            {digits}
-          </span>
-        </div>
-
-        {/* Flip animation overlay */}
-        {flipping && (
-          <div
-            className="absolute top-0 left-0 w-full overflow-hidden flex items-end justify-center"
             style={{
-              height: '50%',
-              background: '#1A1A26',
-              borderBottom: '1px solid rgba(255,183,213,0.15)',
-              zIndex: 3,
-              transformOrigin: 'bottom center',
-              animation: 'flipDown 200ms ease-in forwards',
+              fontFamily: '"Noto Serif JP", serif',
+              fontSize: '52px',
+              fontWeight: 300,
+              color: '#F8F7F2',
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+              paddingBottom: '0px',
+              userSelect: 'none',
             }}
           >
-            <span
-              className="font-serif pb-1"
-              style={{ fontSize: '42px', lineHeight: '1', color: '#F8F7F2', fontWeight: 300 }}
-            >
-              {prevDigits}
-            </span>
-          </div>
-        )}
+            {display}
+          </span>
+        </div>
+
+        {/* Split line */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: 0,
+            right: 0,
+            height: '1px',
+            background: 'rgba(0,0,0,0.45)',
+            zIndex: 5,
+          }}
+        />
+
+        {/* Bottom half — current digit */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '50%',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: '"Noto Serif JP", serif',
+              fontSize: '52px',
+              fontWeight: 300,
+              color: '#F8F7F2',
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+              marginTop: '-44px',
+              userSelect: 'none',
+            }}
+          >
+            {display}
+          </span>
+        </div>
       </div>
-      {label && (
-        <span className="font-sans" style={{ fontSize: '9px', color: '#5A5870', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-          {label}
-        </span>
+
+      {/* Flip overlay — top half animates away */}
+      {phase === 'top-flip' && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '50%',
+            background: '#1A1A26',
+            borderRadius: '8px 8px 0 0',
+            border: '1px solid rgba(255,183,213,0.12)',
+            borderBottom: 'none',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            transformOrigin: 'bottom center',
+            animation: 'flipDown 160ms ease-in forwards',
+            zIndex: 10,
+            backfaceVisibility: 'hidden',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: '"Noto Serif JP", serif',
+              fontSize: '52px',
+              fontWeight: 300,
+              color: '#F8F7F2',
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+              userSelect: 'none',
+            }}
+          >
+            {prevDisplay}
+          </span>
+        </div>
+      )}
+
+      {/* Flip overlay — bottom half of new digit reveals */}
+      {phase === 'show-new' && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '50%',
+            background: '#1A1A26',
+            borderRadius: '0 0 8px 8px',
+            border: '1px solid rgba(255,183,213,0.12)',
+            borderTop: 'none',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            transformOrigin: 'top center',
+            animation: 'flipUp 160ms ease-out forwards',
+            zIndex: 10,
+            backfaceVisibility: 'hidden',
+          }}
+        >
+          <span
+            style={{
+              fontFamily: '"Noto Serif JP", serif',
+              fontSize: '52px',
+              fontWeight: 300,
+              color: '#F8F7F2',
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+              marginTop: '-44px',
+              userSelect: 'none',
+            }}
+          >
+            {display}
+          </span>
+        </div>
       )}
     </div>
   )
 }
 
-function Colon() {
-  const [visible, setVisible] = useState(true)
+function ColonDots() {
+  const [bright, setBright] = useState(true)
   useEffect(() => {
-    const t = setInterval(() => setVisible(v => !v), 500)
+    const t = setInterval(() => setBright(b => !b), 500)
     return () => clearInterval(t)
   }, [])
   return (
-    <div className="flex flex-col gap-2 items-center pb-4">
-      <div
-        style={{
-          width: '5px', height: '5px', borderRadius: '50%',
-          background: visible ? '#FFB7D5' : 'rgba(255,183,213,0.2)',
-          transition: 'background 100ms',
-        }}
-      />
-      <div
-        style={{
-          width: '5px', height: '5px', borderRadius: '50%',
-          background: visible ? '#FFB7D5' : 'rgba(255,183,213,0.2)',
-          transition: 'background 100ms',
-        }}
-      />
+    <div className="flex flex-col items-center justify-center gap-2" style={{ paddingBottom: '12px' }}>
+      {[0, 1].map(i => (
+        <div
+          key={i}
+          style={{
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: bright ? '#FFB7D5' : 'rgba(255,183,213,0.2)',
+            transition: 'background 120ms',
+            boxShadow: bright ? '0 0 6px rgba(255,183,213,0.5)' : 'none',
+          }}
+        />
+      ))}
     </div>
   )
 }
 
 export default function FlipClock() {
   const [time, setTime] = useState(new Date())
-
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(t)
@@ -134,18 +237,20 @@ export default function FlipClock() {
   const ss = format(time, 'ss')
 
   return (
-    <div className="flex flex-col items-center gap-3 py-4">
-      <div className="font-serif text-xs tracking-widest mb-1" style={{ color: '#5A5870', letterSpacing: '0.12em' }}>
-        時刻
-      </div>
-      <div className="font-sans text-xs mb-2" style={{ color: '#5A5870' }}>Current Time</div>
+    <div className="flex flex-col items-center py-5 gap-3">
+      <div className="font-serif text-xs tracking-widest" style={{ color: '#5A5870', letterSpacing: '0.12em' }}>時刻</div>
+      <div className="font-sans text-xs" style={{ color: '#5A5870', marginTop: '-8px' }}>Current Time</div>
 
-      <div className="flex items-center gap-2">
-        <FlipDigit value={hh} label="HH" />
-        <Colon />
-        <FlipDigit value={mm} label="MM" />
-        <Colon />
-        <FlipDigit value={ss} label="SS" />
+      <div className="flex items-center gap-1.5">
+        <FlipDigit value={hh} />
+        <ColonDots />
+        <FlipDigit value={mm} />
+        <ColonDots />
+        <FlipDigit value={ss} />
+      </div>
+
+      <div className="font-sans text-xs" style={{ color: '#5A5870', marginTop: '2px' }}>
+        {format(time, 'EEEE')}
       </div>
     </div>
   )

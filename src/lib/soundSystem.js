@@ -1,6 +1,6 @@
 /**
  * Sound system using Web Audio API — no audio files needed.
- * All sounds respect the localStorage sound toggle (default: OFF).
+ * AudioContext is lazily created on first user interaction.
  */
 
 let audioCtx = null
@@ -9,82 +9,106 @@ const getAudioContext = () => {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)()
   }
+  // Resume if suspended (browser autoplay policy)
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume()
+  }
   return audioCtx
 }
 
-const isSoundEnabled = () => {
-  return localStorage.getItem('sakuraSoundEnabled') === 'true'
-}
+export const isSoundEnabled = () =>
+  localStorage.getItem('sakuraSoundEnabled') === 'true'
 
 export const toggleSound = () => {
-  const current = isSoundEnabled()
-  localStorage.setItem('sakuraSoundEnabled', String(!current))
-  return !current
+  const next = !isSoundEnabled()
+  localStorage.setItem('sakuraSoundEnabled', String(next))
+  return next
 }
 
 export const getSoundEnabled = () => isSoundEnabled()
 
 /**
- * Play a single sine-wave tone
- * @param {number} frequency - Hz
- * @param {number} duration - ms
- * @param {number} volume - 0 to 1
- * @param {number} startDelay - seconds from now
+ * Play a tone with a proper gain envelope
  */
-const playTone = (frequency, duration, volume = 0.15, startDelay = 0) => {
+const playTone = (frequency, duration, volume, startDelay = 0, type = 'sine') => {
   const ctx = getAudioContext()
-  const oscillator = ctx.createOscillator()
-  const gainNode = ctx.createGain()
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.connect(gain)
+  gain.connect(ctx.destination)
 
-  oscillator.connect(gainNode)
-  gainNode.connect(ctx.destination)
+  osc.type = type
+  osc.frequency.setValueAtTime(frequency, ctx.currentTime + startDelay)
 
-  oscillator.type = 'sine'
-  oscillator.frequency.setValueAtTime(frequency, ctx.currentTime + startDelay)
+  const attackTime = 0.005
+  const releaseTime = 0.035
+  const sustainEnd = ctx.currentTime + startDelay + duration / 1000 - releaseTime
 
-  gainNode.gain.setValueAtTime(0, ctx.currentTime + startDelay)
-  gainNode.gain.linearRampToValueAtTime(volume, ctx.currentTime + startDelay + 0.01)
-  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startDelay + duration / 1000)
+  gain.gain.setValueAtTime(0, ctx.currentTime + startDelay)
+  gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + startDelay + attackTime)
+  gain.gain.setValueAtTime(volume, sustainEnd)
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startDelay + duration / 1000)
 
-  oscillator.start(ctx.currentTime + startDelay)
-  oscillator.stop(ctx.currentTime + startDelay + duration / 1000)
+  osc.start(ctx.currentTime + startDelay)
+  osc.stop(ctx.currentTime + startDelay + duration / 1000 + 0.01)
 }
 
 /**
- * Habit checked: Brief soft tone, C5 (523Hz), 80ms
+ * Habit checked: soft wooden chime — C5 + E5 blend, 120ms
  */
 export const playHabitCheck = () => {
   if (!isSoundEnabled()) return
   try {
-    playTone(523.25, 80, 0.15)
-  } catch (e) {
-    console.warn('Sound playback failed:', e)
-  }
+    playTone(523.25, 120, 0.12)       // C5
+    playTone(659.25, 120, 0.06, 0.01) // E5 harmony
+  } catch (e) { console.warn('Sound error:', e) }
 }
 
 /**
- * All habits done today: Three-tone ascending chord (C5, E5, G5)
+ * All habits done: temple bell chord C5→E5→G5
  */
 export const playAllDone = () => {
   if (!isSoundEnabled()) return
   try {
-    playTone(523.25, 200, 0.2, 0)      // C5
-    playTone(659.25, 200, 0.2, 0.2)    // E5
-    playTone(783.99, 200, 0.2, 0.4)    // G5
-  } catch (e) {
-    console.warn('Sound playback failed:', e)
-  }
+    playTone(523.25, 200, 0.18, 0)    // C5
+    playTone(659.25, 200, 0.18, 0.08) // E5
+    playTone(783.99, 280, 0.18, 0.16) // G5 — longer release
+  } catch (e) { console.warn('Sound error:', e) }
 }
 
 /**
- * Achievement unlocked: Two tones (E5 + A5)
+ * Achievement: E5→A5 chord + shimmer arpeggio
  */
 export const playAchievement = () => {
   if (!isSoundEnabled()) return
   try {
-    playTone(659.25, 150, 0.25, 0)     // E5
-    playTone(880.00, 200, 0.25, 0.18)  // A5
-  } catch (e) {
-    console.warn('Sound playback failed:', e)
-  }
+    playTone(659.25, 150, 0.2, 0)      // E5
+    playTone(880.00, 220, 0.2, 0.19)   // A5
+    // Shimmer arpeggio
+    playTone(659.25, 40, 0.07, 0.42)   // E5
+    playTone(783.99, 40, 0.07, 0.48)   // G5
+    playTone(987.77, 40, 0.07, 0.54)   // B5
+    playTone(1318.5, 40, 0.07, 0.60)   // E6
+  } catch (e) { console.warn('Sound error:', e) }
+}
+
+/**
+ * Mood selected: soft raindrop A4
+ */
+export const playMoodSelect = () => {
+  if (!isSoundEnabled()) return
+  try {
+    const ctx = getAudioContext()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(440, ctx.currentTime)
+    gain.gain.setValueAtTime(0, ctx.currentTime)
+    gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.01)
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.09)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.1)
+  } catch (e) { console.warn('Sound error:', e) }
 }

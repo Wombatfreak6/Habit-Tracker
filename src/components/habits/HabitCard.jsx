@@ -8,18 +8,44 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useHabitStore } from '../../stores/habitStore'
 import { useUserStore } from '../../stores/userStore'
 import { playHabitCheck, playAllDone } from '../../lib/soundSystem'
 import PetalBurst from '../tree/PetalBurst'
 import { format } from 'date-fns'
 
-function CustomCheckbox({ checked, onChange, habitId }) {
+/**
+ * Format time as Japanese AM/PM: 午前 / 午後 HH:mm
+ */
+function formatJapaneseTime(dateString) {
+  try {
+    const d = new Date(dateString)
+    const h = d.getHours()
+    const m = d.getMinutes()
+    const ampm = h < 12 ? '午前' : '午後'
+    const displayH = h % 12 === 0 ? 12 : h % 12
+    const mm = String(m).padStart(2, '0')
+    return `${ampm} ${displayH}:${mm}`
+  } catch {
+    return ''
+  }
+}
+
+function formatEnglishTime(dateString) {
+  try {
+    return format(new Date(dateString), 'h:mm a')
+  } catch {
+    return ''
+  }
+}
+
+function CustomCheckbox({ checked, onChange }) {
   const [burstTrigger, setBurstTrigger] = useState(0)
   const [burstOrigin, setBurstOrigin] = useState(null)
   const checkRef = useRef(null)
 
-  const handleClick = (e) => {
+  const handleClick = () => {
     if (!checked) {
       const rect = checkRef.current?.getBoundingClientRect()
       if (rect) {
@@ -65,36 +91,23 @@ export default function HabitCard({ habit, completionTime }) {
   const habits = useHabitStore(s => s.habits)
   const session = useUserStore(s => s.session)
   const userId = session?.user?.id
-
   const isCompleted = todayCompletions.includes(habit.id)
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: habit.id,
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  }
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: habit.id })
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
   const handleToggle = () => {
     if (!userId) return
     toggleCompletion(habit.id, userId)
     if (!isCompleted) {
       playHabitCheck()
-      // Check if all done
-      const willBeCompleted = todayCompletions.length + 1
-      if (willBeCompleted >= habits.length) {
-        setTimeout(playAllDone, 300)
-      }
+      const willComplete = todayCompletions.length + 1
+      if (willComplete >= habits.length) setTimeout(playAllDone, 300)
     }
   }
 
   const handleEditSave = () => {
-    if (editValue.trim() && editValue.trim() !== habit.name) {
-      updateHabit(habit.id, { name: editValue.trim() })
-    }
+    if (editValue.trim() && editValue.trim() !== habit.name) updateHabit(habit.id, { name: editValue.trim() })
     setIsEditing(false)
   }
 
@@ -103,13 +116,16 @@ export default function HabitCard({ habit, completionTime }) {
     if (e.key === 'Escape') { setEditValue(habit.name); setIsEditing(false) }
   }
 
+  const jpTime = completionTime ? formatJapaneseTime(completionTime) : null
+  const enTime = completionTime ? formatEnglishTime(completionTime) : null
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="flex items-center gap-3 group"
+      className="flex items-center gap-2"
       role="listitem"
       id={`habit-${habit.id}`}
     >
@@ -117,13 +133,7 @@ export default function HabitCard({ habit, completionTime }) {
       <div
         {...attributes}
         {...listeners}
-        className="flex-shrink-0 cursor-grab active:cursor-grabbing"
-        style={{
-          color: '#5A5870',
-          opacity: isHovered ? 1 : 0,
-          transition: 'opacity 150ms',
-          width: '16px',
-        }}
+        style={{ color: '#5A5870', opacity: isHovered ? 1 : 0, transition: 'opacity 150ms', width: '16px', cursor: 'grab', flexShrink: 0 }}
       >
         <GripVertical size={14} />
       </div>
@@ -133,36 +143,26 @@ export default function HabitCard({ habit, completionTime }) {
         className="flex items-center gap-3 flex-1 min-w-0 px-4 py-3"
         style={{
           background: '#12121A',
-          border: '1px solid rgba(255,183,213,0.06)',
+          border: `1px solid ${isHovered ? 'rgba(255,183,213,0.12)' : 'rgba(255,183,213,0.06)'}`,
           borderRadius: '8px',
           transition: 'border-color 150ms',
-          borderColor: isHovered ? 'rgba(255,183,213,0.12)' : 'rgba(255,183,213,0.06)',
         }}
       >
-        <CustomCheckbox checked={isCompleted} onChange={handleToggle} habitId={habit.id} />
+        <CustomCheckbox checked={isCompleted} onChange={handleToggle} />
 
-        {/* Name */}
         <div className="flex-1 min-w-0">
           {isEditing ? (
             <input
-              autoFocus
-              value={editValue}
+              autoFocus value={editValue}
               onChange={e => setEditValue(e.target.value)}
               onBlur={handleEditSave}
               onKeyDown={handleKeyDown}
               className="w-full font-sans text-sm bg-transparent outline-none"
-              style={{
-                color: '#F8F7F2',
-                borderBottom: '1px solid rgba(255,183,213,0.4)',
-                paddingBottom: '2px',
-              }}
+              style={{ color: '#F8F7F2', borderBottom: '1px solid rgba(255,183,213,0.4)', paddingBottom: '2px' }}
             />
           ) : (
             <motion.span
-              animate={{
-                color: isCompleted ? '#5A5870' : '#F8F7F2',
-                textDecoration: isCompleted ? 'line-through' : 'none',
-              }}
+              animate={{ color: isCompleted ? '#5A5870' : '#F8F7F2', textDecoration: isCompleted ? 'line-through' : 'none' }}
               transition={{ duration: 0.15 }}
               className="font-sans text-sm block truncate"
             >
@@ -171,21 +171,24 @@ export default function HabitCard({ habit, completionTime }) {
           )}
         </div>
 
-        {/* Right side: completion time + actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {isCompleted && completionTime && (
-            <span className="font-sans" style={{ fontSize: '11px', color: '#5A5870' }}>
-              Done at {format(new Date(completionTime), 'HH:mm')}
-            </span>
+          {/* Completion time — Japanese format with English tooltip */}
+          {isCompleted && jpTime && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="font-serif cursor-default" style={{ fontSize: '11px', color: '#5A5870' }}>
+                  {jpTime}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" style={{ background: '#1A1A26', border: '1px solid rgba(255,183,213,0.15)', color: '#9B98B0' }}>
+                <span className="font-sans text-xs">{enTime}</span>
+              </TooltipContent>
+            </Tooltip>
           )}
+
           <AnimatePresence>
             {isHovered && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center gap-1"
-              >
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1">
                 <button
                   onClick={() => { setEditValue(habit.name); setIsEditing(true) }}
                   className="p-1 rounded transition-colors"
@@ -196,7 +199,6 @@ export default function HabitCard({ habit, completionTime }) {
                 >
                   <Pencil size={13} />
                 </button>
-
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <button
@@ -212,20 +214,11 @@ export default function HabitCard({ habit, completionTime }) {
                   <AlertDialogContent style={{ background: '#1A1A26', border: '1px solid rgba(255,183,213,0.15)', color: '#F8F7F2' }}>
                     <AlertDialogHeader>
                       <AlertDialogTitle className="font-serif" style={{ color: '#F8F7F2' }}>Delete habit?</AlertDialogTitle>
-                      <AlertDialogDescription style={{ color: '#9B98B0' }}>
-                        "{habit.name}" will be removed from your tracker.
-                      </AlertDialogDescription>
+                      <AlertDialogDescription style={{ color: '#9B98B0' }}>"{habit.name}" will be removed.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel style={{ background: 'transparent', border: '1px solid rgba(255,183,213,0.2)', color: '#9B98B0' }}>
-                        Cancel
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={() => deleteHabit(habit.id)}
-                        style={{ background: '#FFB7D5', color: '#0B0B0F' }}
-                      >
-                        Delete
-                      </AlertDialogAction>
+                      <AlertDialogCancel style={{ background: 'transparent', border: '1px solid rgba(255,183,213,0.2)', color: '#9B98B0' }}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteHabit(habit.id)} style={{ background: '#FFB7D5', color: '#0B0B0F' }}>Delete</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>

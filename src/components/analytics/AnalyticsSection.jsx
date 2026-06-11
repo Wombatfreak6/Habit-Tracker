@@ -2,12 +2,11 @@ import {
   AreaChart, Area, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { Flame, Trophy, CheckCircle, CalendarDays } from 'lucide-react'
 import { useHabits } from '../../hooks/useHabits'
 import { getDailyStats } from '../../lib/streakUtils'
 
 function CustomTooltip({ active, payload, label }) {
-  if (!active || !payload || !payload.length) return null
+  if (!active || !payload?.length) return null
   return (
     <div
       className="font-sans"
@@ -30,27 +29,8 @@ function CustomTooltip({ active, payload, label }) {
   )
 }
 
-function StatCard({ icon: Icon, label, value, iconColor, unit }) {
-  return (
-    <div
-      className="flex flex-col gap-2 p-4"
-      style={{
-        background: '#1A1A26',
-        border: '1px solid rgba(255,183,213,0.08)',
-        borderRadius: '8px',
-      }}
-    >
-      <Icon size={20} style={{ color: iconColor }} />
-      <div className="font-serif" style={{ fontSize: '28px', color: '#F8F7F2', fontWeight: 300, lineHeight: 1 }}>
-        {value}<span className="font-sans" style={{ fontSize: '12px', color: '#9B98B0', marginLeft: '4px' }}>{unit}</span>
-      </div>
-      <div className="font-sans" style={{ fontSize: '11px', color: '#5A5870' }}>{label}</div>
-    </div>
-  )
-}
-
 export default function AnalyticsSection() {
-  const { completionHistory, currentStreak, longestStreak, totalCompleted, weeklyPercent } = useHabits()
+  const { completionHistory } = useHabits()
   const stats = getDailyStats(completionHistory, 14)
 
   return (
@@ -62,7 +42,7 @@ export default function AnalyticsSection() {
         <div className="font-sans text-xs" style={{ color: '#5A5870' }}>Analytics</div>
       </div>
 
-      {/* Completion % Chart */}
+      {/* Daily Completion % Chart */}
       <div>
         <div className="font-sans text-xs mb-3" style={{ color: '#9B98B0' }}>Daily Completion — 14 Days</div>
         <ResponsiveContainer width="100%" height={140}>
@@ -123,13 +103,7 @@ export default function AnalyticsSection() {
         </ResponsiveContainer>
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <StatCard icon={Flame} label="Current Streak" value={currentStreak} unit="days" iconColor="#D4A853" />
-        <StatCard icon={Trophy} label="Longest Streak" value={longestStreak} unit="days" iconColor="#D4A853" />
-        <StatCard icon={CheckCircle} label="Total Completed" value={totalCompleted} iconColor="#FFB7D5" />
-        <StatCard icon={CalendarDays} label="Weekly Avg" value={weeklyPercent} unit="%" iconColor="#4A7C59" />
-      </div>
+      <div style={{ height: '8px' }} />
     </div>
   )
 }

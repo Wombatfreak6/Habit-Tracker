@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useDroppable } from '@dnd-kit/core'
 import HabitCard from './HabitCard'
@@ -16,8 +16,34 @@ const CATEGORY_COLORS = {
 
 const CATEGORY_HAIKU = {
   Health: { jp: '身体は神殿', en: 'The body is a temple' },
-  Mind: { jp: '心を静めよ', en: 'Still the mind' },
-  Work: { jp: '一歩ずつ', en: 'One step at a time' },
+  Mind:   { jp: '心を静めよ', en: 'Still the mind' },
+  Work:   { jp: '一歩ずつ', en: 'One step at a time' },
+}
+
+function hexToRgb(hex) {
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+  return r ? `${parseInt(r[1],16)}, ${parseInt(r[2],16)}, ${parseInt(r[3],16)}` : '255,255,255'
+}
+
+function DiamondDivider() {
+  return (
+    <div
+      className="font-sans"
+      style={{
+        color: '#3A3848',
+        fontSize: '7px',
+        letterSpacing: '14px',
+        textAlign: 'left',
+        paddingLeft: '2px',
+        paddingTop: '4px',
+        paddingBottom: '2px',
+        userSelect: 'none',
+      }}
+      aria-hidden
+    >
+      ◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆
+    </div>
+  )
 }
 
 function AddHabitInput({ category, onClose }) {
@@ -56,7 +82,7 @@ function AddHabitInput({ category, onClose }) {
             onChange={e => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onBlur={onClose}
-            placeholder="Habit name…"
+            placeholder="習慣名…"
             className="w-full bg-transparent outline-none font-sans text-sm"
             style={{ color: '#F8F7F2' }}
           />
@@ -74,8 +100,10 @@ export default function CategoryGroup({ category, habits }) {
 
   const isCollapsed = collapsedCategories.includes(category)
   const color = CATEGORY_COLORS[category]
+  const colorRgb = hexToRgb(color)
   const completedCount = habits.filter(h => todayCompletions.includes(h.id)).length
   const totalCount = habits.length
+  const isCategoryComplete = totalCount > 0 && completedCount >= totalCount
   const haiku = CATEGORY_HAIKU[category]
 
   const { setNodeRef } = useDroppable({ id: `droppable-${category}` })
@@ -85,27 +113,37 @@ export default function CategoryGroup({ category, habits }) {
       {/* Category header */}
       <button
         onClick={() => toggleCategory(category)}
-        className="flex items-center justify-between px-2 py-2 w-full text-left transition-colors rounded-md group"
-        style={{
-          borderBottom: `1px solid rgba(${hexToRgb(color)}, 0.15)`,
-          paddingBottom: '8px',
-          marginBottom: '4px',
-        }}
-        onMouseEnter={e => e.currentTarget.style.background = `rgba(${hexToRgb(color)}, 0.04)`}
+        className="flex items-center justify-between px-2 py-2 w-full text-left rounded-md"
+        style={{ paddingBottom: '8px', marginBottom: '2px' }}
+        onMouseEnter={e => e.currentTarget.style.background = `rgba(${colorRgb}, 0.04)`}
         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
         id={`category-${category}`}
       >
         <div className="flex items-center gap-2">
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+          {/* Pulsing dot — pulses when incomplete */}
+          <motion.div
+            animate={!isCategoryComplete && totalCount > 0
+              ? { scale: [1, 1.15, 1] }
+              : { scale: 1 }
+            }
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }}
+          />
           <span className="font-serif" style={{ fontSize: '13px', color: '#9B98B0' }}>{category}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-sans" style={{ fontSize: '11px', color: '#5A5870' }}>
             {completedCount}/{totalCount}
           </span>
-          {isCollapsed ? <ChevronRight size={14} style={{ color: '#5A5870' }} /> : <ChevronDown size={14} style={{ color: '#5A5870' }} />}
+          {isCollapsed
+            ? <ChevronRight size={14} style={{ color: '#5A5870' }} />
+            : <ChevronDown size={14} style={{ color: '#5A5870' }} />
+          }
         </div>
       </button>
+
+      {/* Diamond divider */}
+      <DiamondDivider />
 
       {/* Habit list */}
       <AnimatePresence>
@@ -120,39 +158,36 @@ export default function CategoryGroup({ category, habits }) {
             <div ref={setNodeRef} className="flex flex-col gap-1 py-1">
               <SortableContext items={habits.map(h => h.id)} strategy={verticalListSortingStrategy}>
                 {habits.length === 0 ? (
-                  <div className="flex flex-col items-center py-6 gap-1">
-                    <div className="font-serif" style={{ fontSize: '13px', color: '#5A5870' }}>{haiku.jp}</div>
-                    <div className="font-sans" style={{ fontSize: '11px', color: '#3A3848' }}>{haiku.en}</div>
+                  /* Haiku empty state with tanzaku red line */
+                  <div className="flex items-center py-5 gap-3 pl-2">
+                    <div style={{ width: '2px', height: '40px', background: '#8B1A1A', borderRadius: '1px', flexShrink: 0 }} />
+                    <div className="flex flex-col gap-0.5">
+                      <div className="font-serif" style={{ fontSize: '13px', color: '#5A5870' }}>{haiku.jp}</div>
+                      <div className="font-sans" style={{ fontSize: '11px', color: '#3A3848' }}>{haiku.en}</div>
+                    </div>
                   </div>
                 ) : (
-                  habits.map(habit => (
-                    <HabitCard key={habit.id} habit={habit} />
-                  ))
+                  habits.map(habit => <HabitCard key={habit.id} habit={habit} />)
                 )}
               </SortableContext>
 
-              {/* Add habit */}
               <AnimatePresence>
                 {showAdd && (
-                  <AddHabitInput
-                    key="add-input"
-                    category={category}
-                    onClose={() => setShowAdd(false)}
-                  />
+                  <AddHabitInput key="add-input" category={category} onClose={() => setShowAdd(false)} />
                 )}
               </AnimatePresence>
 
               {!showAdd && (
                 <button
                   onClick={() => setShowAdd(true)}
-                  className="flex items-center gap-1 px-4 py-2 font-sans text-sm transition-colors"
+                  className="flex flex-col items-start px-4 pt-2 pb-1 transition-colors"
                   style={{ color: '#5A5870' }}
                   onMouseEnter={e => e.currentTarget.style.color = '#9B98B0'}
                   onMouseLeave={e => e.currentTarget.style.color = '#5A5870'}
                   id={`add-habit-${category}`}
                 >
-                  <Plus size={13} />
-                  Add habit
+                  <span className="font-serif text-xs">＋ 習慣を追加</span>
+                  <span className="font-sans" style={{ fontSize: '10px', color: '#3A3848', marginTop: '1px' }}>Add habit</span>
                 </button>
               )}
             </div>
@@ -161,9 +196,4 @@ export default function CategoryGroup({ category, habits }) {
       </AnimatePresence>
     </div>
   )
-}
-
-function hexToRgb(hex) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
-  return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : '255,255,255'
 }
