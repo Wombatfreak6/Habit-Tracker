@@ -1,111 +1,208 @@
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =====================================================
+   SAKURA HABIT TRACKER — Global Design System
+   ===================================================== */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* Sakura Palette */
+  --sakura-pink: #FFB7D5;
+  --sakura-glow: #FFC9E0;
+  --moonlight: #F8F7F2;
+  --bg-deep: #0B0B0F;
+  --bg-surface: #12121A;
+  --bg-elevated: #1A1A26;
+  --gold: #D4A853;
+  --bamboo: #4A7C59;
+  --text-primary: #F8F7F2;
+  --text-secondary: #9B98B0;
+  --text-muted: #5A5870;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  /* shadcn dark overrides */
+  --background: #0B0B0F;
+  --foreground: #F8F7F2;
+  --card: #12121A;
+  --card-foreground: #F8F7F2;
+  --popover: #1A1A26;
+  --popover-foreground: #F8F7F2;
+  --primary: #FFB7D5;
+  --primary-foreground: #0B0B0F;
+  --secondary: #1A1A26;
+  --secondary-foreground: #9B98B0;
+  --muted: #12121A;
+  --muted-foreground: #5A5870;
+  --accent: #1A1A26;
+  --accent-foreground: #F8F7F2;
+  --destructive: #FF6B6B;
+  --border: rgba(255, 183, 213, 0.1);
+  --input: #12121A;
+  --ring: rgba(255, 183, 213, 0.4);
+  --radius: 0.5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+/* =====================================================
+   GLOBAL RESET & BASE
+   ===================================================== */
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 body {
-  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+/* =====================================================
+   CUSTOM SCROLLBAR
+   ===================================================== */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 183, 213, 0.3);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 183, 213, 0.5);
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+/* =====================================================
+   TYPOGRAPHY HELPERS
+   ===================================================== */
+
+.font-serif { font-family: 'Noto Serif JP', serif; }
+.font-sans  { font-family: 'Inter', sans-serif; }
+
+/* =====================================================
+   FLIP CLOCK ANIMATION
+   ===================================================== */
+
+@keyframes flipDown {
+  from { transform: rotateX(0deg); }
+  to   { transform: rotateX(-90deg); }
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
+@keyframes flipUp {
+  from { transform: rotateX(90deg); }
+  to   { transform: rotateX(0deg); }
 }
 
-code,
-.counter {
-  font-family: var(--mono);
+/* =====================================================
+   TREE SWAY ANIMATION
+   ===================================================== */
+
+@keyframes sway {
+  0%   { transform: rotate(-1.5deg); }
+  100% { transform: rotate(1.5deg); }
+}
+
+/* =====================================================
+   SAKURA PETAL SPINNER (loading states)
+   ===================================================== */
+
+@keyframes petalSpin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.petal-spinner {
   display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+  position: relative;
+  width: 24px;
+  height: 24px;
+  animation: petalSpin 1.2s linear infinite;
+}
+.petal-spinner::before,
+.petal-spinner::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 183, 213, 0.8);
+}
+.petal-spinner::before { top: 2px; left: 8px; transform: rotate(0deg); }
+.petal-spinner::after  { bottom: 2px; left: 8px; transform: rotate(90deg); }
+
+/* =====================================================
+   FLOATING ANIMATION (auth page decorations)
+   ===================================================== */
+
+@keyframes float {
+  0%   { transform: translateY(0px) rotate(0deg); }
+  100% { transform: translateY(-12px) rotate(10deg); }
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+/* =====================================================
+   SHIMMER (loading skeleton)
+   ===================================================== */
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,183,213,0.04) 0%,
+    rgba(255,183,213,0.12) 50%,
+    rgba(255,183,213,0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* =====================================================
+   SHADCN OVERRIDES — keep components dark-themed
+   ===================================================== */
+
+@layer base {
+  .theme {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Inter', sans-serif;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--bg-deep);
+    color: var(--text-primary);
+  }
+  html {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* =====================================================
+   LAYOUT HELPERS
+   ===================================================== */
+
+.sidebar-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 100%;
 }
