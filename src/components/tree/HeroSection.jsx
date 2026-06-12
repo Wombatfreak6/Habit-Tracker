@@ -1,41 +1,24 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Volume2, VolumeX } from 'lucide-react'
 import SakuraCanvas from './SakuraCanvas'
 import { getSoundEnabled, toggleSound } from '../../lib/soundSystem'
 
-// Seigaiha wave SVG divider
-function WaveDivider() {
+// Single elegant gradient line — no waves, no scallops
+function GradientDivider() {
   return (
-    <svg
-      className="w-full"
-      height="40"
-      viewBox="0 0 1200 40"
-      preserveAspectRatio="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <pattern id="seigaiha" x="0" y="0" width="40" height="20" patternUnits="userSpaceOnUse">
-          <path
-            d="M0 20 Q10 0 20 20 Q30 0 40 20"
-            fill="none"
-            stroke="rgba(255,183,213,0.12)"
-            strokeWidth="1"
-          />
-          <path
-            d="M-20 20 Q-10 0 0 20"
-            fill="none"
-            stroke="rgba(255,183,213,0.12)"
-            strokeWidth="1"
-          />
-        </pattern>
-      </defs>
-      <rect width="1200" height="40" fill="url(#seigaiha)" />
-    </svg>
+    <div
+      style={{
+        width: '100%',
+        height: '1px',
+        background: 'linear-gradient(to right, transparent 0%, rgba(255,183,213,0.25) 20%, rgba(255,183,213,0.4) 50%, rgba(255,183,213,0.25) 80%, transparent 100%)',
+        margin: 0,
+      }}
+    />
   )
 }
 
 export default function HeroSection() {
-  const [soundOn, setSoundOn] = useState(getSoundEnabled())
+  const [soundOn, setSoundOn] = useState(getSoundEnabled)
 
   const handleSoundToggle = () => {
     const next = toggleSound()
@@ -44,7 +27,7 @@ export default function HeroSection() {
 
   return (
     <div className="relative flex flex-col">
-      {/* Hero canvas area */}
+      {/* Hero canvas area — NO sway wrapper; sway lives inside SakuraCanvas via ctx.translate */}
       <div
         className="relative w-full overflow-hidden"
         style={{
@@ -52,14 +35,8 @@ export default function HeroSection() {
           background: 'linear-gradient(180deg, #0D0D1A 0%, #0B0B0F 100%)',
         }}
       >
-        {/* Sway wrapper */}
-        <div
-          className="absolute inset-0"
-          style={{
-            animation: 'sway 4s ease-in-out infinite alternate',
-            transformOrigin: 'bottom center',
-          }}
-        >
+        {/* Canvas wrapper — plain div, no CSS animation */}
+        <div style={{ width: '100%', height: '100%', minHeight: 0 }}>
           <SakuraCanvas />
         </div>
 
@@ -72,8 +49,9 @@ export default function HeroSection() {
             border: '1px solid rgba(255,183,213,0.15)',
             color: soundOn ? '#FFB7D5' : '#5A5870',
           }}
-          title={soundOn ? 'Mute sounds' : 'Enable sounds'}
+          title={soundOn ? '音 / Mute' : '音 / Sound On'}
           aria-label={soundOn ? 'Mute sounds' : 'Enable sounds'}
+          id="sound-toggle"
         >
           {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
         </button>
@@ -92,10 +70,8 @@ export default function HeroSection() {
         </div>
       </div>
 
-      {/* Wave divider */}
-      <div style={{ marginTop: '-1px' }}>
-        <WaveDivider />
-      </div>
+      {/* Gradient line divider — clean, no waves */}
+      <GradientDivider />
     </div>
   )
 }

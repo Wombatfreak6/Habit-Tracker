@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { supabase } from './lib/supabase'
 import { useUserStore } from './stores/userStore'
@@ -15,6 +16,7 @@ import MoodTracker from './components/mood/MoodTracker'
 import HabitHeatmap from './components/calendar/HabitHeatmap'
 import AchievementToastContainer from './components/gamification/AchievementToast'
 import GlobalPetals from './components/ui/GlobalPetals'
+import ShrineWatermark from './components/cultural/ShrineWatermark'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 // ── Decorative SVG elements ──────────────────────────────────
@@ -141,10 +143,13 @@ function MobileFallback() {
 // ── Dashboard ────────────────────────────────────────────────
 
 function Dashboard({ userId }) {
-  const loadFromSupabase = useHabitStore(s => s.loadFromSupabase)
+  const loadFromSupabase    = useHabitStore(s => s.loadFromSupabase)
   const subscribeToRealtime = useHabitStore(s => s.subscribeToRealtime)
-  const loadHistory = useMoodStore(s => s.loadHistory)
-  const loadAchievements = useAchievementStore(s => s.loadAchievements)
+  const loadHistory         = useMoodStore(s => s.loadHistory)
+  const loadAchievements    = useAchievementStore(s => s.loadAchievements)
+
+  // ── Bonsai panel state ───────────────────────────────────────
+  const [bonsaiOpen, setBonsaiOpen] = useState(false)
 
   useEffect(() => {
     if (!userId) return
@@ -158,36 +163,17 @@ function Dashboard({ userId }) {
   return (
     <div
       style={{
-        height: '100vh',
-        width: '100vw',
-        overflow: 'hidden',
-        background: 'radial-gradient(ellipse at 50% 35%, #0F0F18 0%, #0B0B0F 70%)',
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
+        height:          '100vh',
+        width:           '100vw',
+        overflow:        'hidden',
+        background:      'radial-gradient(ellipse at 50% 35%, #0F0F18 0%, #0B0B0F 70%)',
+        position:        'relative',
+        display:         'flex',
+        flexDirection:   'column',
       }}
     >
-      {/* Torii gate watermark */}
-      <div
-        style={{
-          position: 'fixed',
-          top: '40%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          pointerEvents: 'none',
-          zIndex: 0,
-          opacity: 0.05,
-        }}
-        aria-hidden
-      >
-        <svg width="200" height="200" viewBox="0 0 120 120" fill="none">
-          <rect x="10" y="30" width="100" height="8" rx="4" fill="#F8F7F2"/>
-          <rect x="20" y="42" width="80" height="5" rx="2.5" fill="#F8F7F2"/>
-          <rect x="24" y="47" width="10" height="60" rx="5" fill="#F8F7F2"/>
-          <rect x="86" y="47" width="10" height="60" rx="5" fill="#F8F7F2"/>
-          <path d="M5 30 Q60 5 115 30" fill="none" stroke="#F8F7F2" strokeWidth="6" strokeLinecap="round"/>
-        </svg>
-      </div>
+      {/* Shrine watermark — position:fixed, sits behind everything */}
+      <ShrineWatermark />
 
       {/* Paper texture */}
       <div
@@ -199,25 +185,30 @@ function Dashboard({ userId }) {
         aria-hidden
       />
 
-      {/* Hero */}
-      <div style={{ flexShrink: 0, zIndex: 1, position: 'relative' }}>
-        <BrushstrokeAccents />
-        <HeroSection />
-      </div>
-
-      {/* Three-column layout */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative', zIndex: 1 }}>
+      {/* Three-column layout — no HeroSection at top, bonsai panel inside */}
+      <div
+        style={{
+          display:   'flex',
+          flex:      1,
+          overflow:  'hidden',
+          position:  'relative',   // ← required for absolute bonsai panel
+          zIndex:    1,
+        }}
+      >
 
         {/* Left sidebar */}
         <div
           className="sidebar-scroll"
           style={{
-            width: '280px',
-            flexShrink: 0,
+            width:       '280px',
+            flexShrink:  0,
             borderRight: '1px solid rgba(255,183,213,0.06)',
-            background: 'rgba(18,18,26,0.6)',
+            background:  'rgba(18,18,26,0.6)',
+            position:    'relative',
+            zIndex:      1,
           }}
         >
+          <BrushstrokeAccents />
           <FlipClock />
           <div style={{ height: '1px', background: 'rgba(255,183,213,0.06)', margin: '0 16px' }} />
           <MonthlyCalendar />
@@ -235,22 +226,126 @@ function Dashboard({ userId }) {
           <div style={{ height: '40px' }} />
         </div>
 
-        {/* Right sidebar */}
+        {/* Right sidebar wrapper — position:relative, overflow:hidden for sliding panel */}
         <div
-          className="sidebar-scroll"
           style={{
-            width: '300px',
+            width:      '300px',
             flexShrink: 0,
-            borderLeft: '1px solid rgba(255,183,213,0.06)',
-            background: 'rgba(18,18,26,0.6)',
+            position:   'relative',
+            overflow:   'hidden',
           }}
         >
-          <div style={{ height: '16px' }} />
-          <MoodTracker />
-          <div style={{ height: '1px', background: 'rgba(255,183,213,0.06)', margin: '8px 16px' }} />
-          <HabitHeatmap />
-          <div style={{ height: '1px', background: 'rgba(255,183,213,0.06)', margin: '4px 16px 0' }} />
-          <ManekiNekoWidget />
+          {/* Right sidebar content — always mounted */}
+          <div
+            className="sidebar-scroll"
+            style={{
+              width:        '100%',
+              height:       '100%',
+              borderLeft:   '1px solid rgba(255,183,213,0.06)',
+              background:   'rgba(18,18,26,0.6)',
+              paddingRight: '32px',   // prevent content hiding under the tab
+              boxSizing:    'border-box',
+            }}
+          >
+            <div style={{ height: '16px' }} />
+            <MoodTracker />
+            <div style={{ height: '1px', background: 'rgba(255,183,213,0.06)', margin: '8px 16px' }} />
+            <HabitHeatmap />
+            <div style={{ height: '1px', background: 'rgba(255,183,213,0.06)', margin: '4px 16px 0' }} />
+            <ManekiNekoWidget />
+          </div>
+
+          {/* ── Bonsai sliding panel ─────────────────────────────── */}
+          <div
+            style={{
+              position:        'absolute',
+              right:           '32px',
+              top:             0,
+              width:           '268px',
+              height:          '100%',
+              background:      'rgba(13,13,26,0.97)',
+              backdropFilter:  'blur(14px)',
+              borderLeft:      '1px solid rgba(255,183,213,0.12)',
+              zIndex:          40,
+              overflow:        'hidden',
+              transform:       bonsaiOpen ? 'translateX(0)' : 'translateX(100%)',
+              transition:      'transform 350ms cubic-bezier(0.4,0,0.2,1)',
+              pointerEvents:   bonsaiOpen ? 'auto' : 'none',
+              display:         'flex',
+              flexDirection:   'column',
+            }}
+          >
+            {/* HeroSection — 58% of panel height */}
+            <div style={{ height: '58%', width: '100%', overflow: 'hidden' }}>
+              <HeroSection />
+            </div>
+
+            {/* Horizontal divider */}
+            <div
+              style={{
+                height:     '1px',
+                background: 'linear-gradient(to right, transparent, rgba(255,183,213,0.3), transparent)',
+                margin:     '0',
+                flexShrink: 0,
+              }}
+            />
+
+            {/* DarumaWidget — remaining space */}
+            <div
+              style={{
+                flex:           1,
+                display:        'flex',
+                flexDirection:  'column',
+                alignItems:     'center',
+                justifyContent: 'center',
+              }}
+            >
+              <DarumaWidget />
+            </div>
+          </div>
+
+          {/* ── Vertical tab (always visible on right edge) ──────── */}
+          <div
+            onClick={() => setBonsaiOpen(prev => !prev)}
+            id="bonsai-panel-tab"
+            title={bonsaiOpen ? '閉じる' : '桜 / 開く'}
+            style={{
+              position:       'absolute',
+              right:          0,
+              top:            0,
+              height:         '100%',
+              width:          '32px',
+              background:     'rgba(18,18,26,0.92)',
+              borderLeft:     '1px solid rgba(255,183,213,0.1)',
+              display:        'flex',
+              flexDirection:  'column',
+              alignItems:     'center',
+              justifyContent: 'center',
+              cursor:         'pointer',
+              zIndex:         50,
+              transition:     'background 200ms',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(26,26,40,0.97)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(18,18,26,0.92)' }}
+          >
+            {bonsaiOpen
+              ? <ChevronLeft size={16} style={{ color: '#FFB7D5' }} />
+              : <ChevronRight size={16} style={{ color: '#5A5870' }} />
+            }
+            <span
+              style={{
+                writingMode:   'vertical-rl',
+                fontFamily:    'Noto Serif JP, serif',
+                fontSize:      '13px',
+                color:         'rgba(255,183,213,0.5)',
+                letterSpacing: '0.2em',
+                marginTop:     '12px',
+                userSelect:    'none',
+              }}
+            >
+              桜
+            </span>
+          </div>
         </div>
       </div>
 
@@ -263,7 +358,7 @@ function Dashboard({ userId }) {
 // ── Root ─────────────────────────────────────────────────────
 
 export default function App() {
-  const session = useUserStore(s => s.session)
+  const session    = useUserStore(s => s.session)
   const setSession = useUserStore(s => s.setSession)
 
   useEffect(() => {

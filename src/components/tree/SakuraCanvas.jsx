@@ -1,432 +1,524 @@
 import { useEffect, useRef } from 'react'
 import { useHabitStore } from '../../stores/habitStore'
 
-// ─── Drawing helpers ──────────────────────────────────────────
-
-function drawBranch(ctx, x1, y1, x2, y2, width, color) {
-  ctx.beginPath()
-  ctx.moveTo(x1, y1)
-  ctx.lineTo(x2, y2)
-  ctx.strokeStyle = color
-  ctx.lineWidth = width
-  ctx.lineCap = 'round'
-  ctx.stroke()
-}
-
-function drawTrunk(ctx, baseX, baseY, W, H) {
-  const trunkH = H * 0.38
-  const topX = baseX - 8
-  const topY = baseY - trunkH
-
-  // Main trunk shape (filled bezier)
-  ctx.beginPath()
-  ctx.moveTo(baseX - 14, baseY)
-  ctx.bezierCurveTo(baseX - 18, baseY - trunkH * 0.4, baseX - 22, baseY - trunkH * 0.7, topX - 6, topY)
-  ctx.bezierCurveTo(topX + 2, topY - 2, topX + 10, topY, topX + 10, topY)
-  ctx.bezierCurveTo(baseX + 16, baseY - trunkH * 0.65, baseX + 18, baseY - trunkH * 0.35, baseX + 14, baseY)
-  ctx.closePath()
-  ctx.fillStyle = '#2A1F1A'
-  ctx.fill()
-
-  // Texture lines along trunk
-  const textures = [
-    { x1: baseX - 4, y1: baseY - trunkH * 0.15, x2: baseX - 8, y2: baseY - trunkH * 0.55 },
-    { x1: baseX + 4, y1: baseY - trunkH * 0.1, x2: baseX + 2, y2: baseY - trunkH * 0.5 },
-    { x1: baseX - 8, y1: baseY - trunkH * 0.35, x2: baseX - 12, y2: baseY - trunkH * 0.65 },
-  ]
-  ctx.lineWidth = 0.8
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)'
-  for (const t of textures) {
-    ctx.beginPath()
-    ctx.moveTo(t.x1, t.y1)
-    ctx.lineTo(t.x2, t.y2)
-    ctx.stroke()
-  }
-
-  return { topX, topY, trunkH }
-}
-
-function drawBonsaiBranches(ctx, ratio) {
-  // Will be called with the canvas ctx and habit ratio
-}
-
-function drawBlossomCluster(ctx, x, y, ratio, seed) {
-  if (ratio <= 0) return
-  const rand = (n) => {
-    let s = seed + n * 127.1
-    s = Math.sin(s) * 43758.5453123
-    return s - Math.floor(s)
-  }
-
-  const threshold = 1 - ratio
-  const r = rand(seed * 3.7)
-  if (r < threshold) return
-
-  const clusterSize = 3 + Math.floor(rand(seed * 1.3) * 4)
-  for (let i = 0; i < clusterSize; i++) {
-    const ox = (rand(i * 7.1) - 0.5) * 10
-    const oy = (rand(i * 13.7) - 0.5) * 10
-    const pr = 3 + rand(i * 4.1) * 4
-    const alpha = 0.65 + rand(i * 2.3) * 0.35
-    const light = rand(i * 9.3) > 0.5
-
-    // Glow halo
-    const grd = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, pr * 2.5)
-    grd.addColorStop(0, `rgba(255,183,213,${alpha * 0.25 * ratio})`)
-    grd.addColorStop(1, 'rgba(255,183,213,0)')
-    ctx.beginPath()
-    ctx.arc(x + ox, y + oy, pr * 2.5, 0, Math.PI * 2)
-    ctx.fillStyle = grd
-    ctx.fill()
-
-    // Petal
-    ctx.beginPath()
-    ctx.arc(x + ox, y + oy, pr, 0, Math.PI * 2)
-    ctx.fillStyle = light ? `rgba(255,201,224,${alpha})` : `rgba(255,183,213,${alpha})`
-    ctx.fill()
-  }
-}
-
-function drawMoon(ctx, cx, cy) {
-  const r = 80
-  const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
-  grd.addColorStop(0, 'rgba(248,247,242,0.1)')
-  grd.addColorStop(0.5, 'rgba(248,247,242,0.04)')
-  grd.addColorStop(1, 'rgba(0,0,0,0)')
-  ctx.beginPath()
-  ctx.arc(cx, cy, r, 0, Math.PI * 2)
-  ctx.fillStyle = grd
-  ctx.fill()
-}
-
-function drawMonPattern(ctx, x, y, r) {
-  ctx.beginPath()
-  ctx.arc(x, y, r, 0, Math.PI * 2)
-  ctx.strokeStyle = 'rgba(255,183,213,0.04)'
-  ctx.lineWidth = 1
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.arc(x, y, r * 0.7, 0, Math.PI * 2)
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.moveTo(x - r, y); ctx.lineTo(x + r, y)
-  ctx.moveTo(x, y - r); ctx.lineTo(x, y + r)
-  ctx.stroke()
-}
-
-function drawGoldRing(ctx, cx, cy, progress) {
-  if (progress <= 0) return
-  const count = 8
-  const ringR = 95
-  for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2
-    const lx = cx + Math.cos(a) * ringR
-    const ly = cy + Math.sin(a) * ringR
+// ─────────────────────────────────────────────────────────────────────
+//  SHARED: 5-petal sakura flower
+// ─────────────────────────────────────────────────────────────────────
+function drawSakuraFlower(ctx, x, y, size, rotation, alpha, color) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(rotation)
+  ctx.globalAlpha = alpha
+  for (let i = 0; i < 5; i++) {
     ctx.save()
-    ctx.globalAlpha = progress * 0.85
+    ctx.rotate((i * Math.PI * 2) / 5)
     ctx.beginPath()
-    ctx.ellipse(lx, ly, 5, 9, a, 0, Math.PI * 2)
-    ctx.fillStyle = '#D4A853'
+    ctx.ellipse(0, -size * 0.58, size * 0.32, size * 0.58, 0, 0, Math.PI * 2)
+    ctx.fillStyle = color || (i % 2 === 0 ? '#FFB7D5' : '#FFC9E0')
     ctx.fill()
     ctx.restore()
   }
+  ctx.beginPath()
+  ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2)
+  ctx.fillStyle = '#FFE4F0'
+  ctx.fill()
+  ctx.restore()
 }
 
-function drawGlow(ctx, cx, cy, ratio) {
-  if (ratio <= 0.05) return
-  const r = 120 + ratio * 60
-  const alpha = ratio * 0.16
-  const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
-  grd.addColorStop(0, `rgba(255,183,213,${alpha})`)
-  grd.addColorStop(1, 'rgba(255,183,213,0)')
+// ─────────────────────────────────────────────────────────────────────
+//  FILLED TAPERED BEZIER BRANCH helper
+// ─────────────────────────────────────────────────────────────────────
+function drawFilledBezierBranch(ctx, x1, y1, cp1x, cp1y, cp2x, cp2y, x2, y2, wBase, wTip, color) {
+  const dx  = x2 - x1
+  const dy  = y2 - y1
+  const len = Math.sqrt(dx * dx + dy * dy) || 1
+  const nx  = -dy / len
+  const ny  =  dx / len
+
   ctx.beginPath()
-  ctx.arc(cx, cy, r, 0, Math.PI * 2)
-  ctx.fillStyle = grd
+  ctx.moveTo(x1 + nx * wBase, y1 + ny * wBase)
+  ctx.bezierCurveTo(
+    cp1x + nx * wBase * 0.7, cp1y + ny * wBase * 0.7,
+    cp2x + nx * wTip  * 0.5, cp2y + ny * wTip  * 0.5,
+    x2   + nx * wTip,        y2   + ny * wTip,
+  )
+  ctx.lineTo(x2 - nx * wTip, y2 - ny * wTip)
+  ctx.bezierCurveTo(
+    cp2x - nx * wTip  * 0.5, cp2y - ny * wTip  * 0.5,
+    cp1x - nx * wBase * 0.7, cp1y - ny * wBase * 0.7,
+    x1   - nx * wBase,       y1   - ny * wBase,
+  )
+  ctx.closePath()
+  ctx.fillStyle = color
   ctx.fill()
 }
 
-function drawPot(ctx, baseX, baseY) {
-  const pw = 120, ph = 28, rx = 4
-  const px = baseX - pw / 2
-
-  // Pot body
-  ctx.beginPath()
-  ctx.roundRect(px, baseY, pw, ph, rx)
-  ctx.fillStyle = '#2A1A14'
-  ctx.fill()
-
-  // Rim highlight
-  ctx.beginPath()
-  ctx.moveTo(px + rx, baseY)
-  ctx.lineTo(px + pw - rx, baseY)
-  ctx.strokeStyle = '#4A3020'
-  ctx.lineWidth = 1
-  ctx.stroke()
-
-  // Feet
-  ctx.fillStyle = '#221410'
-  ctx.fillRect(px + 16, baseY + ph, 16, 6)
-  ctx.fillRect(px + pw - 32, baseY + ph, 16, 6)
+function addBarkLines(ctx, x1, y1, x2, y2, count = 3) {
+  ctx.save()
+  ctx.strokeStyle = 'rgba(20,10,4,0.4)'
+  ctx.lineWidth   = 0.8
+  ctx.lineCap     = 'round'
+  for (let i = 0; i < count; i++) {
+    const t1 = 0.15 + (i / count) * 0.6
+    const t2 = t1 + 0.12
+    const ox = (i % 2 === 0 ? 1 : -1) * (2 + i * 1.5)
+    ctx.beginPath()
+    ctx.moveTo(x1 + (x2 - x1) * t1 + ox, y1 + (y2 - y1) * t1)
+    ctx.lineTo(x1 + (x2 - x1) * t2 + ox, y1 + (y2 - y1) * t2)
+    ctx.stroke()
+  }
+  ctx.restore()
 }
 
-// ─── Full bonsai tree drawing ──────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+//  FULL BONSAI SCENE
+// ─────────────────────────────────────────────────────────────────────
+function drawBonsaiScene(ctx, W, H, ratio) {
+  // ── Sway (inside draw loop — no CSS animation) ───────────────
+  const now  = performance.now()
+  const swayX = Math.sin(now * 0.00035) * 3.5
+  const swayY = Math.sin(now * 0.00055) * 1.2
 
-function drawFullBonsai(ctx, W, H, ratio, goldRingRef) {
   ctx.clearRect(0, 0, W, H)
 
-  const cx = W / 2
-  const baseY = H - 40
+  const CX    = W * 0.5
+  const POT_H = 32
+  const BASE  = H - 30           // pot bottom reference
+  const potY  = BASE - POT_H + 8
+  const potW  = 130
+  const potX  = CX - potW / 2
+  const potRx = 6
 
-  // Moon
-  drawMoon(ctx, cx + 30, H * 0.22)
+  // TRUNK geometry
+  const trunkBaseY = potY
+  const trunkTopY  = trunkBaseY - 190
 
-  // Mon decorations (subtle family crest patterns)
-  drawMonPattern(ctx, cx - W * 0.28, H * 0.3, 20)
-  drawMonPattern(ctx, cx + W * 0.22, H * 0.18, 16)
-  drawMonPattern(ctx, cx - W * 0.1, H * 0.45, 12)
-
-  // Crown glow
-  drawGlow(ctx, cx - 8, H * 0.3, ratio)
-
-  // Pot
-  drawPot(ctx, cx, baseY + 4)
-
-  // Trunk
-  const trunkH = H * 0.40
-  const trunkTopX = cx - 8
-  const trunkTopY = baseY - trunkH
-
-  // Draw filled trunk
+  // ── 1. Full moon (drawn before everything, no sway) ──────────
+  const moonX = CX - 60
+  const moonY = trunkTopY - 80
+  const moonR = 55
+  const moonOuterGrd = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, 90)
+  moonOuterGrd.addColorStop(0,   'rgba(255,183,213,0.04)')
+  moonOuterGrd.addColorStop(1,   'rgba(255,183,213,0)')
   ctx.beginPath()
-  ctx.moveTo(cx - 14, baseY)
-  ctx.bezierCurveTo(cx - 20, baseY - trunkH * 0.35, cx - 24, baseY - trunkH * 0.65, trunkTopX - 6, trunkTopY)
-  ctx.bezierCurveTo(trunkTopX + 2, trunkTopY - 3, trunkTopX + 10, trunkTopY, trunkTopX + 10, trunkTopY)
-  ctx.bezierCurveTo(cx + 18, baseY - trunkH * 0.62, cx + 20, baseY - trunkH * 0.32, cx + 14, baseY)
-  ctx.closePath()
-
-  const trunkGrad = ctx.createLinearGradient(cx - 20, baseY, cx + 20, baseY)
-  trunkGrad.addColorStop(0, '#2A1F1A')
-  trunkGrad.addColorStop(0.5, '#3A2A22')
-  trunkGrad.addColorStop(1, '#2A1F1A')
-  ctx.fillStyle = trunkGrad
+  ctx.arc(moonX, moonY, 90, 0, Math.PI * 2)
+  ctx.fillStyle = moonOuterGrd
   ctx.fill()
 
-  // Trunk texture
+  const moonGrd = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonR)
+  moonGrd.addColorStop(0,   'rgba(248,247,242,0.10)')
+  moonGrd.addColorStop(1,   'rgba(248,247,242,0)')
+  ctx.beginPath()
+  ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2)
+  ctx.fillStyle = moonGrd
+  ctx.fill()
+
+  // ── 2. Sway starts here ──────────────────────────────────────
   ctx.save()
-  ctx.lineWidth = 0.7
-  ctx.strokeStyle = 'rgba(0,0,0,0.28)'
-  const lines = [
-    [[cx - 2, baseY - 10], [cx - 6, baseY - trunkH * 0.45]],
-    [[cx + 3, baseY - 15], [cx + 2, baseY - trunkH * 0.42]],
-    [[cx - 10, baseY - trunkH * 0.25], [cx - 14, baseY - trunkH * 0.6]],
+  ctx.translate(swayX, swayY)
+
+  // ── 3. Bonsai pot ────────────────────────────────────────────
+  // Feet
+  ctx.fillStyle = '#221410'
+  ctx.beginPath(); ctx.roundRect(potX + 14,        potY + POT_H, 16, 8, 2); ctx.fill()
+  ctx.beginPath(); ctx.roundRect(potX + potW - 30,  potY + POT_H, 16, 8, 2); ctx.fill()
+
+  // Pot body
+  ctx.beginPath(); ctx.roundRect(potX, potY, potW, POT_H, potRx)
+  ctx.fillStyle = '#2A1810'; ctx.fill()
+
+  // Top rim
+  ctx.beginPath()
+  ctx.moveTo(potX + potRx, potY)
+  ctx.lineTo(potX + potW - potRx, potY)
+  ctx.strokeStyle = '#4A2A18'; ctx.lineWidth = 1; ctx.stroke()
+
+  const potHl = ctx.createLinearGradient(potX, potY, potX, potY + 8)
+  potHl.addColorStop(0, 'rgba(255,255,255,0.04)')
+  potHl.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = potHl
+  ctx.beginPath(); ctx.roundRect(potX, potY, potW, 8, [potRx, potRx, 0, 0]); ctx.fill()
+
+  // ── 4. Root buttress (4 roots) ───────────────────────────────
+  const rootDefs = [
+    { ex: CX - 35, spreadY: 6, reverse: false },
+    { ex: CX - 20, spreadY: 4, reverse: false },
+    { ex: CX + 20, spreadY: 4, reverse: true  },
+    { ex: CX + 38, spreadY: 6, reverse: true  },
   ]
-  for (const [[x1, y1], [x2, y2]] of lines) {
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke()
+  ctx.fillStyle = '#3A2010'
+  for (const root of rootDefs) {
+    ctx.beginPath()
+    ctx.moveTo(CX - 11, trunkBaseY)
+    ctx.bezierCurveTo(
+      (CX + root.ex) / 2, trunkBaseY + 2,
+      root.ex - (root.reverse ? -10 : 10), trunkBaseY + root.spreadY,
+      root.ex, trunkBaseY + root.spreadY,
+    )
+    ctx.lineTo(root.ex, trunkBaseY + root.spreadY + 2)
+    ctx.bezierCurveTo(
+      root.ex - (root.reverse ? -8 : 8), trunkBaseY + root.spreadY + 3,
+      (CX + root.ex) / 2 + (root.reverse ? 4 : -4), trunkBaseY + 4,
+      CX + 11, trunkBaseY,
+    )
+    ctx.fill()
+  }
+
+  // ── 5. Back-center bough (drawn FIRST = furthest back) ───────
+  const boughBackX1 = CX
+  const boughBackY1 = trunkBaseY - 185
+  drawFilledBezierBranch(
+    ctx,
+    boughBackX1, boughBackY1,
+    boughBackX1 + 10, boughBackY1 - 40,
+    boughBackX1 + 25, boughBackY1 - 80,
+    boughBackX1 + 32, boughBackY1 - 108,
+    9, 3, '#2A1A10',
+  )
+  addBarkLines(ctx, boughBackX1, boughBackY1, boughBackX1 + 32, boughBackY1 - 108, 2)
+
+  // ── 6. Trunk — filled S-curve shape ──────────────────────────
+  const trunkGrd = ctx.createLinearGradient(CX - 11, 0, CX + 11, 0)
+  trunkGrd.addColorStop(0,    '#2A1810')
+  trunkGrd.addColorStop(0.35, '#4A3020')
+  trunkGrd.addColorStop(0.65, '#5A3A28')
+  trunkGrd.addColorStop(1,    '#2A1810')
+
+  ctx.beginPath()
+  // Left edge — S-curve
+  ctx.moveTo(CX - 11, trunkBaseY)
+  ctx.bezierCurveTo(
+    CX - 38, trunkBaseY - 70,
+    CX - 18, trunkBaseY - 130,
+    CX - 22, trunkTopY,
+  )
+  // Top join
+  ctx.lineTo(CX + 22, trunkTopY)
+  // Right edge (reverse)
+  ctx.bezierCurveTo(
+    CX + 8,  trunkBaseY - 130,
+    CX - 2,  trunkBaseY - 70,
+    CX + 11, trunkBaseY,
+  )
+  ctx.closePath()
+  ctx.fillStyle = trunkGrd
+  ctx.fill()
+
+  // Bark texture lines (6 thin beziers running down trunk)
+  ctx.save()
+  ctx.strokeStyle = 'rgba(20,10,4,0.4)'
+  ctx.lineWidth   = 0.8
+  ctx.lineCap     = 'round'
+  for (let i = 0; i < 6; i++) {
+    const ox = -9 + i * 4
+    ctx.beginPath()
+    ctx.moveTo(CX + ox, trunkTopY + 10)
+    ctx.bezierCurveTo(
+      CX + ox - 5, trunkTopY + 60,
+      CX + ox + 3, trunkTopY + 120,
+      CX + ox - 2, trunkBaseY - 10,
+    )
+    ctx.stroke()
+  }
+  // Bark cracks (3 diagonal)
+  ctx.strokeStyle = 'rgba(20,10,4,0.3)'
+  ctx.lineWidth   = 0.6
+  const crackY = [trunkTopY + 50, trunkTopY + 100, trunkTopY + 140]
+  for (const cy of crackY) {
+    ctx.beginPath()
+    ctx.moveTo(CX - 6, cy)
+    ctx.lineTo(CX + 6, cy + 7)
+    ctx.stroke()
   }
   ctx.restore()
 
-  // ─── Boughs ────────────────────────────────────────────────
+  // ── 7. Left bough — windswept, droops then rises (S-curve) ───
+  const lbX1 = CX - 4,  lbY1 = trunkBaseY - 160
+  const lbCp1x = CX - 80, lbCp1y = lbY1 + 25   // droop left-down
+  const lbCp2x = CX - 160, lbCp2y = lbY1 - 55  // rise toward tip
+  const lbX2  = CX - 200, lbY2 = lbY1 - 45
 
+  drawFilledBezierBranch(
+    ctx, lbX1, lbY1, lbCp1x, lbCp1y, lbCp2x, lbCp2y, lbX2, lbY2,
+    14, 6, '#3D2B1F',
+  )
+  addBarkLines(ctx, lbX1, lbY1, lbX2, lbY2, 2)
+
+  // ── 8. Right bough — ascending at ~45° ───────────────────────
+  const rbX1 = CX + 6,  rbY1 = trunkBaseY - 170
+  const rbCp1x = CX + 70, rbCp1y = rbY1 - 40
+  const rbCp2x = CX + 140, rbCp2y = rbY1 - 100
+  const rbX2  = CX + 160, rbY2 = rbY1 - 118
+
+  drawFilledBezierBranch(
+    ctx, rbX1, rbY1, rbCp1x, rbCp1y, rbCp2x, rbCp2y, rbX2, rbY2,
+    12, 5, '#3D2B1F',
+  )
+  addBarkLines(ctx, rbX1, rbY1, rbX2, rbY2, 2)
+
+  // ── Helper: point on cubic bezier ────────────────────────────
+  const bezierPoint = (t, x1, y1, c1x, c1y, c2x, c2y, x2, y2) => {
+    const mt = 1 - t
+    return {
+      x: mt*mt*mt*x1 + 3*mt*mt*t*c1x + 3*mt*t*t*c2x + t*t*t*x2,
+      y: mt*mt*mt*y1 + 3*mt*mt*t*c1y + 3*mt*t*t*c2y + t*t*t*y2,
+    }
+  }
+  const bezierTangent = (t, x1, y1, c1x, c1y, c2x, c2y, x2, y2) => {
+    const mt = 1 - t
+    return {
+      x: 3*mt*mt*(c1x-x1) + 6*mt*t*(c2x-c1x) + 3*t*t*(x2-c2x),
+      y: 3*mt*mt*(c1y-y1) + 6*mt*t*(c2y-c1y) + 3*t*t*(y2-c2y),
+    }
+  }
+
+  // ── 9. Secondary branches on each bough ──────────────────────
+  const twigTips = []
+
+  // collect secondary branch configs per bough
   const boughs = [
-    // Left bough — curves left and slightly up
     {
-      start: [trunkTopX - 2, trunkTopY + 10],
-      cp1: [trunkTopX - 55, trunkTopY - 18],
-      cp2: [trunkTopX - 100, trunkTopY - 45],
-      end: [trunkTopX - 130, trunkTopY - 55],
-      w: 13,
+      x1: lbX1, y1: lbY1, cp1x: lbCp1x, cp1y: lbCp1y,
+      cp2x: lbCp2x, cp2y: lbCp2y, x2: lbX2, y2: lbY2,
       branches: [
-        { angle: -0.7, len: 50, w: 7, sub: [{ angle: -0.5, len: 32, w: 3, blossomSeed: 11 }, { angle: -1.1, len: 28, w: 3, blossomSeed: 22 }] },
-        { angle: -1.3, len: 44, w: 6, sub: [{ angle: -0.9, len: 30, w: 3, blossomSeed: 33 }, { angle: -1.5, len: 26, w: 3, blossomSeed: 44 }] },
-        { angle: -0.3, len: 38, w: 5, sub: [{ angle: -0.4, len: 26, w: 3, blossomSeed: 55 }] },
+        { t: 0.20, angle: -1.1, len: 55, wB: 6, wT: 2, seed: 101 },
+        { t: 0.40, angle: -0.6, len: 50, wB: 5, wT: 2, seed: 202 },
+        { t: 0.60, angle: -1.3, len: 44, wB: 5, wT: 2, seed: 303 },
+        { t: 0.80, angle: -0.4, len: 40, wB: 4, wT: 2, seed: 404 },
       ],
     },
-    // Right bough — curves right and steeply up
     {
-      start: [trunkTopX + 6, trunkTopY + 4],
-      cp1: [trunkTopX + 60, trunkTopY - 30],
-      cp2: [trunkTopX + 110, trunkTopY - 70],
-      end: [trunkTopX + 145, trunkTopY - 90],
-      w: 14,
+      x1: rbX1, y1: rbY1, cp1x: rbCp1x, cp1y: rbCp1y,
+      cp2x: rbCp2x, cp2y: rbCp2y, x2: rbX2, y2: rbY2,
       branches: [
-        { angle: 0.5, len: 55, w: 8, sub: [{ angle: 0.3, len: 34, w: 3, blossomSeed: 66 }, { angle: 0.9, len: 30, w: 3, blossomSeed: 77 }] },
-        { angle: 1.2, len: 48, w: 7, sub: [{ angle: 0.8, len: 32, w: 3, blossomSeed: 88 }, { angle: 1.4, len: 28, w: 3, blossomSeed: 99 }] },
-        { angle: 0.2, len: 40, w: 5, sub: [{ angle: 0.1, len: 28, w: 3, blossomSeed: 110 }, { angle: 0.6, len: 24, w: 3, blossomSeed: 121 }] },
+        { t: 0.20, angle:  0.8, len: 52, wB: 6, wT: 2, seed: 501 },
+        { t: 0.40, angle:  1.3, len: 48, wB: 5, wT: 2, seed: 602 },
+        { t: 0.60, angle:  0.4, len: 44, wB: 5, wT: 2, seed: 703 },
+        { t: 0.80, angle:  1.0, len: 38, wB: 4, wT: 2, seed: 804 },
       ],
     },
-    // Center bough — goes up, slightly right
     {
-      start: [trunkTopX, trunkTopY],
-      cp1: [trunkTopX + 10, trunkTopY - 30],
-      cp2: [trunkTopX + 20, trunkTopY - 60],
-      end: [trunkTopX + 25, trunkTopY - 80],
-      w: 10,
+      // back-center secondary branches
+      x1: boughBackX1, y1: boughBackY1,
+      cp1x: boughBackX1 + 10, cp1y: boughBackY1 - 40,
+      cp2x: boughBackX1 + 25, cp2y: boughBackY1 - 80,
+      x2: boughBackX1 + 32,   y2:  boughBackY1 - 108,
       branches: [
-        { angle: -0.4, len: 38, w: 5, sub: [{ angle: -0.3, len: 28, w: 3, blossomSeed: 132 }] },
-        { angle: 0.5, len: 36, w: 5, sub: [{ angle: 0.4, len: 26, w: 3, blossomSeed: 143 }] },
+        { t: 0.4, angle: -0.6, len: 45, wB: 5, wT: 2, seed: 801 },
+        { t: 0.7, angle:  0.4, len: 40, wB: 4, wT: 2, seed: 802 },
       ],
     },
   ]
 
   for (const bough of boughs) {
-    // Draw bough as bezier
-    ctx.beginPath()
-    ctx.moveTo(...bough.start)
-    ctx.bezierCurveTo(...bough.cp1, ...bough.cp2, ...bough.end)
-    ctx.strokeStyle = '#3A2A22'
-    ctx.lineWidth = bough.w
-    ctx.lineCap = 'round'
-    ctx.stroke()
+    const { x1, y1, cp1x, cp1y, cp2x, cp2y, x2, y2, branches } = bough
+    for (const br of branches) {
+      const bp  = bezierPoint(br.t, x1, y1, cp1x, cp1y, cp2x, cp2y, x2, y2)
+      const tan = bezierTangent(br.t, x1, y1, cp1x, cp1y, cp2x, cp2y, x2, y2)
+      const baseAngle = Math.atan2(tan.y, tan.x)
+      const angle = baseAngle + br.angle
 
-    // Draw sub-branches from bough end
-    const [ex, ey] = bough.end
+      const brX2 = bp.x + Math.cos(angle) * br.len
+      const brY2 = bp.y + Math.sin(angle) * br.len
 
-    for (const branch of bough.branches) {
-      // Compute base angle from bough direction
-      const dx = bough.end[0] - bough.cp2[0]
-      const dy = bough.end[1] - bough.cp2[1]
-      const baseAngle = Math.atan2(dy, dx)
-      const ba = baseAngle + branch.angle
+      drawFilledBezierBranch(
+        ctx,
+        bp.x, bp.y,
+        bp.x + Math.cos(angle) * br.len * 0.3, bp.y + Math.sin(angle) * br.len * 0.3,
+        bp.x + Math.cos(angle) * br.len * 0.7, bp.y + Math.sin(angle) * br.len * 0.7,
+        brX2, brY2,
+        br.wB, br.wT, '#4A3020',
+      )
+      addBarkLines(ctx, bp.x, bp.y, brX2, brY2, 2)
 
-      const bx = ex + Math.cos(ba) * branch.len
-      const by = ey + Math.sin(ba) * branch.len
-
-      ctx.beginPath()
-      ctx.moveTo(ex, ey)
-      ctx.lineTo(bx, by)
-      ctx.strokeStyle = '#3A2A22'
-      ctx.lineWidth = branch.w
-      ctx.lineCap = 'round'
-      ctx.stroke()
-
-      // Sub-branches (twigs)
-      for (const sub of branch.sub || []) {
-        const sa = ba + sub.angle
-        const sx = bx + Math.cos(sa) * sub.len
-        const sy = by + Math.sin(sa) * sub.len
-
-        ctx.beginPath()
-        ctx.moveTo(bx, by)
-        ctx.lineTo(sx, sy)
-        ctx.strokeStyle = '#4A3530'
-        ctx.lineWidth = sub.w
-        ctx.lineCap = 'round'
-        ctx.stroke()
-
-        // Blossom cluster at twig tip
-        drawBlossomCluster(ctx, sx, sy, ratio, sub.blossomSeed)
+      // Scatter blossom along secondary at 60% density
+      for (let si = 1; si <= 3; si++) {
+        const st = si / 4
+        const sp = bezierPoint(st, bp.x, bp.y,
+          bp.x + Math.cos(angle) * br.len * 0.3, bp.y + Math.sin(angle) * br.len * 0.3,
+          bp.x + Math.cos(angle) * br.len * 0.7, bp.y + Math.sin(angle) * br.len * 0.7,
+          brX2, brY2)
+        if (Math.random() < 0.6) {
+          twigTips.push({ x: sp.x, y: sp.y, seed: br.seed + si * 7, secondary: true })
+        }
       }
 
-      // Blossom at branch tip too
-      drawBlossomCluster(ctx, bx, by, ratio * 0.7, branch.sub?.[0]?.blossomSeed + 200 || 999)
+      // Tertiary twigs
+      const twigAngles = [-0.45, 0.35, -0.8]
+      for (let ti = 0; ti < 3; ti++) {
+        const ta  = angle + twigAngles[ti]
+        const tl  = 22 + ((br.seed * (ti + 1) * 7919) % 1000) / 1000 * 14
+        const tx2 = brX2 + Math.cos(ta) * tl
+        const ty2 = brY2 + Math.sin(ta) * tl
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.moveTo(brX2, brY2)
+        ctx.lineTo(tx2, ty2)
+        ctx.strokeStyle = '#5A3A28'
+        ctx.lineWidth   = 1.2
+        ctx.lineCap     = 'round'
+        ctx.stroke()
+        ctx.restore()
+
+        twigTips.push({ x: tx2, y: ty2, seed: br.seed + ti * 13, secondary: false })
+      }
+      // Secondary branch tip also gets a cluster
+      twigTips.push({ x: brX2, y: brY2, seed: br.seed + 999, secondary: false })
     }
   }
 
-  // Gold ring at 100%
-  if (ratio >= 1) {
-    const g = goldRingRef.current
-    if (!g.active) { g.active = true; g.progress = 0; g.dir = 1 }
-    g.progress = Math.min(1, Math.max(0, g.progress + g.dir * 0.007))
-    if (g.progress >= 1) g.dir = -1
-    if (g.progress <= 0 && g.dir === -1) { g.active = false; g.progress = 0; g.dir = 1 }
-    drawGoldRing(ctx, cx - 8, trunkTopY - 40, g.progress)
-  } else {
-    goldRingRef.current = { active: false, progress: 0, dir: 1 }
+  // ── 10. Crown glow (behind blossoms at high ratio) ───────────
+  if (ratio >= 0.8) {
+    const glowAlpha = (ratio - 0.8) / 0.2
+    const crownX = CX - 10
+    const crownY = trunkTopY - 80
+    const grd = ctx.createRadialGradient(crownX, crownY, 0, crownX, crownY, 200)
+    grd.addColorStop(0,   `rgba(255,183,213,${0.08 * glowAlpha})`)
+    grd.addColorStop(0.5, `rgba(255,183,213,${0.04 * glowAlpha})`)
+    grd.addColorStop(1,   'rgba(255,183,213,0)')
+    ctx.beginPath()
+    ctx.ellipse(crownX, crownY, 300, 200, 0, 0, Math.PI * 2)
+    ctx.fillStyle = grd
+    ctx.fill()
   }
+
+  // ── 11. Blossom clusters — scaled by ratio ───────────────────
+  const totalTwigs = twigTips.length
+  const clusterCount = Math.floor(totalTwigs * (0.15 + ratio * 0.85))
+  const flowerCountPerCluster = Math.floor(8 + ratio * 6)   // 8→14
+  const avgFlowerSize = 3.5 + ratio * 3.5                   // 3.5→7px
+
+  // Deterministic seeded random
+  const seededRng = (seed, n) => {
+    let s = (seed * 127.1 + n * 311.7) % 1000
+    s = Math.abs(Math.sin(s) * 43758.5453)
+    return s - Math.floor(s)
+  }
+
+  const flowerColors = ['#FFB7D5', '#FFC9E0', '#FFD5E8']
+
+  // Select which tips to render (always include the first 15% even at ratio=0)
+  const activeTips = []
+  for (let i = 0; i < totalTwigs; i++) {
+    const tip = twigTips[i]
+    const r = seededRng(tip.seed, 0)
+    if (i < clusterCount || (ratio < 0.15 && r < 0.15)) {
+      activeTips.push(tip)
+    }
+  }
+
+  for (const tip of activeTips) {
+    const { x, y, seed } = tip
+    const isMinimum = ratio < 0.15
+    const count = isMinimum
+      ? Math.floor(4 + seededRng(seed, 1) * 4)   // 4–8 at minimum
+      : flowerCountPerCluster
+    const sz = isMinimum
+      ? 3 + seededRng(seed, 2) * 1
+      : avgFlowerSize
+
+    for (let f = 0; f < count; f++) {
+      const ox  = (seededRng(seed, f * 3 + 10) - 0.5) * 20
+      const oy  = (seededRng(seed, f * 3 + 11) - 0.5) * 20
+      const fsz = sz * (0.7 + seededRng(seed, f * 3 + 12) * 0.6)
+      const rot = seededRng(seed, f * 3 + 13) * Math.PI * 2
+      const alpha = isMinimum
+        ? 0.4 + seededRng(seed, f * 3 + 14) * 0.2
+        : 0.6 + seededRng(seed, f * 3 + 14) * 0.3
+      const colorIdx = Math.floor(seededRng(seed, f * 3 + 15) * 3)
+      drawSakuraFlower(ctx, x + ox, y + oy, fsz, rot, alpha, flowerColors[colorIdx])
+    }
+  }
+
+  // ── 12. Sway ends ────────────────────────────────────────────
+  ctx.restore()
 }
 
-// ─── Falling petals (hero canvas only) ────────────────────────
-
-function renderPetals(ctx, W, H, petals, ratio, t) {
-  const count = Math.floor(ratio * 40)
+// ─────────────────────────────────────────────────────────────────────
+//  FALLING PETALS on hero canvas (tied to ratio)
+// ─────────────────────────────────────────────────────────────────────
+function renderHeroPetals(ctx, W, H, petals, ratio, t) {
+  const count = Math.floor(ratio * 24)
   while (petals.length < count) {
     petals.push({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      vy: 0.3 + Math.random() * 0.5,
-      vx: (Math.random() - 0.5) * 0.3,
-      rot: Math.random() * Math.PI * 2,
-      rotV: (Math.random() - 0.5) * 0.03,
+      x:     Math.random() * W,
+      y:     Math.random() * H,
+      vy:    0.3 + Math.random() * 0.45,
+      rot:   Math.random() * Math.PI * 2,
+      rotV:  (Math.random() - 0.5) * 0.022,
+      size:  3 + Math.random() * 3,
+      alpha: 0.4 + Math.random() * 0.3,
+      amp:   20 + Math.random() * 25,
       phase: Math.random() * Math.PI * 2,
-      size: 2 + Math.random() * 2,
     })
   }
-  // Trim excess
   while (petals.length > count) petals.pop()
 
-  for (const p of petals) {
-    p.x += p.vx + Math.sin(t + p.phase) * 0.25
+  const colors = ['#FFB7D5', '#FFC9E0', '#FFD5E8']
+  for (let i = 0; i < petals.length; i++) {
+    const p = petals[i]
+    p.x += Math.sin(t * 0.8 + p.phase) * 0.3
     p.y += p.vy
     p.rot += p.rotV
-    if (p.y > H + 10) { p.y = -10; p.x = Math.random() * W }
-
-    ctx.save()
-    ctx.translate(p.x, p.y)
-    ctx.rotate(p.rot)
-    ctx.beginPath()
-    ctx.ellipse(0, 0, p.size, p.size * 0.55, 0, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(255,183,213,0.7)'
-    ctx.fill()
-    ctx.restore()
+    if (p.y > H + 12) { p.y = -12; p.x = Math.random() * W }
+    drawSakuraFlower(ctx, p.x, p.y, p.size, p.rot, p.alpha, colors[i % 3])
   }
 }
 
-// ─── Component ────────────────────────────────────────────────
-
+// ─────────────────────────────────────────────────────────────────────
+//  COMPONENT
+// ─────────────────────────────────────────────────────────────────────
 export default function SakuraCanvas() {
-  const canvasRef = useRef(null)
+  const canvasRef  = useRef(null)
   const wrapperRef = useRef(null)
-  const animRef = useRef(null)
-  const petalsRef = useRef([])
-  const goldRingRef = useRef({ active: false, progress: 0, dir: 1 })
+  const animRef    = useRef(null)
+  const petalsRef  = useRef([])
+  const ratioRef   = useRef(0)
 
-  const habits = useHabitStore(s => s.habits)
+  const habits           = useHabitStore(s => s.habits)
   const todayCompletions = useHabitStore(s => s.todayCompletions)
   const ratio = habits.length > 0 ? todayCompletions.length / habits.length : 0
 
-  // ResizeObserver — fills canvas on mount and resize
+  // Keep ratioRef in sync
+  useEffect(() => { ratioRef.current = ratio }, [ratio])
+
+  // ResizeObserver — syncs canvas buffer to CSS layout size
   useEffect(() => {
-    const canvas = canvasRef.current
+    const canvas  = canvasRef.current
     const wrapper = wrapperRef.current
     if (!canvas || !wrapper) return
-
-    const observer = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        canvas.width = entry.contentRect.width
-        canvas.height = entry.contentRect.height
+    const obs = new ResizeObserver(entries => {
+      for (const e of entries) {
+        canvas.width  = e.contentRect.width
+        canvas.height = e.contentRect.height
       }
     })
-    observer.observe(wrapper)
-    return () => observer.disconnect()
+    obs.observe(wrapper)
+    return () => obs.disconnect()
   }, [])
 
-  // Re-draw when ratio changes
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || canvas.width === 0) return
-    drawFullBonsai(canvas.getContext('2d'), canvas.width, canvas.height, ratio, goldRingRef)
-  }, [ratio])
-
-  // Animation loop
+  // Animation loop — sway lives inside drawBonsaiScene via performance.now()
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    const ctx = canvas.getContext('2d')
 
-    const loop = () => {
+    const loop = (now) => {
       if (canvas.width > 0 && canvas.height > 0) {
-        const ctx = canvas.getContext('2d')
-        drawFullBonsai(ctx, canvas.width, canvas.height, ratio, goldRingRef)
-        renderPetals(ctx, canvas.width, canvas.height, petalsRef.current, ratio, Date.now() * 0.001)
+        const r = ratioRef.current
+        drawBonsaiScene(ctx, canvas.width, canvas.height, r)
+        renderHeroPetals(ctx, canvas.width, canvas.height, petalsRef.current, r, now * 0.001)
       }
       animRef.current = requestAnimationFrame(loop)
     }
     animRef.current = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(animRef.current)
-  }, [ratio])
+  }, [])
 
   return (
-    <div ref={wrapperRef} className="relative w-full h-full" style={{ minHeight: '340px' }}>
-      <canvas ref={canvasRef} className="w-full h-full" style={{ display: 'block' }} />
+    <div ref={wrapperRef} style={{ width: '100%', height: '100%', minHeight: 0 }}>
+      <canvas ref={canvasRef} style={{ display: 'block', width: '100%', height: '100%' }} />
     </div>
   )
 }
